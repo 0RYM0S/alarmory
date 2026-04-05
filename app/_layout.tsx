@@ -1,59 +1,97 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import { useEffect, useRef } from 'react';
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
+import * as NavigationBar from 'expo-navigation-bar';
+import { ThemeProvider } from '@/src/context/ThemeContext';
+import { useTheme } from '@/src/hooks/useTheme';
+import { initDatabase } from '@/src/db/index';
 
-import { useColorScheme } from '@/components/useColorScheme';
+export { ErrorBoundary } from 'expo-router';
+export const unstable_settings = { initialRouteName: '(tabs)' };
 
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
-} from 'expo-router';
-
-export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
-};
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+initDatabase();
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-    ...FontAwesome.font,
-  });
-
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
-
+  const [loaded, error] = useFonts({ ...FontAwesome.font });
+  useEffect(() => { if (error) throw error; }, [error]);
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      NavigationBar.setVisibilityAsync('hidden');
+      NavigationBar.setBehaviorAsync('overlay-swipe');
     }
   }, [loaded]);
-
-  if (!loaded) {
-    return null;
-  }
-
-  return <RootLayoutNav />;
+  if (!loaded) return null;
+  return (
+    <ThemeProvider>
+      <RootLayoutNav />
+    </ThemeProvider>
+  );
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+  const { colors, isDark, scheme } = useTheme();
+  const mountedRef = useRef(false);
+  const fadeAnim = useSharedValue(1);
+
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    // Theme changed — flash to 0 then fade in
+    fadeAnim.value = 0;
+    fadeAnim.value = withTiming(1, { duration: 250 });
+  }, [scheme]);
+
+  const fadeAnimStyle = useAnimatedStyle(() => ({
+    opacity: fadeAnim.value,
+  }));
+
+  const baseTheme = isDark ? DarkTheme : DefaultTheme;
+  const theme = {
+    ...baseTheme,
+    dark: isDark,
+    colors: {
+      ...baseTheme.colors,
+      primary: colors.tint,
+      background: colors.background,
+      card: colors.background,
+      text: colors.text,
+      border: colors.tabBar,
+      notification: colors.tint,
+    },
+  };
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-    </ThemeProvider>
+    <NavThemeProvider value={theme}>
+      <Reanimated.View style={[{ flex: 1 }, fadeAnimStyle]}>
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.text,
+            headerTitleStyle: { color: colors.text },
+          }}
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="alarm/create" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="alarm/[id]/edit" options={{ presentation: 'modal', title: 'Edit Alarm' }} />
+          <Stack.Screen name="ringing" options={{ presentation: 'fullScreenModal', headerShown: false }} />
+          <Stack.Screen name="mission/photo" options={{ presentation: 'fullScreenModal', headerShown: false }} />
+          <Stack.Screen name="mission/steps" options={{ presentation: 'fullScreenModal', headerShown: false }} />
+          <Stack.Screen name="mission/typing" options={{ presentation: 'fullScreenModal', headerShown: false }} />
+          <Stack.Screen name="photo-register" options={{ presentation: 'modal', title: 'Register Photo' }} />
+        </Stack>
+      </Reanimated.View>
+    </NavThemeProvider>
   );
 }
