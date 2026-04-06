@@ -5,6 +5,7 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   Easing,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { useTheme } from '@/src/hooks/useTheme';
@@ -19,6 +20,7 @@ interface AlarmMission {
 interface MissionPickerProps {
   missions: AlarmMission[];
   onChange: (missions: AlarmMission[]) => void;
+  photoMissionDraftKey: string;
 }
 
 const MISSION_CARDS: Array<{
@@ -40,7 +42,7 @@ const TYPING_OPTIONS: Array<{ key: string; label: string }> = [
 const DEFAULT_CONFIGS: Record<MissionType, any> = {
   steps: { targetSteps: 25 },
   typing: { passageLength: 'medium' },
-  photo: {},
+  photo: { targetPhotoUri: '' },
 };
 
 const STEP_MIN = 5;
@@ -48,8 +50,6 @@ const STEP_MAX = 200;
 const STEP_INCREMENT = 5;
 
 type CardKey = 'no-mission' | MissionType;
-const ALL_CARD_KEYS: CardKey[] = ['no-mission', 'photo', 'steps', 'typing'];
-
 interface StepInputProps {
   value: number;
   colors: any;
@@ -92,7 +92,7 @@ const stepInputStyle = StyleSheet.create({
   },
 }).input;
 
-export function MissionPicker({ missions, onChange }: MissionPickerProps) {
+export function MissionPicker({ missions, onChange, photoMissionDraftKey }: MissionPickerProps) {
   const { colors } = useTheme();
 
   // Per-card scale shared values — one per card key, initialized once
@@ -101,7 +101,7 @@ export function MissionPicker({ missions, onChange }: MissionPickerProps) {
   const stepsScale = useSharedValue(1);
   const typingScale = useSharedValue(1);
 
-  const scalesRef = useRef<Record<CardKey, Animated.SharedValue<number>>>({
+  const scalesRef = useRef<Record<CardKey, SharedValue<number>>>({
     'no-mission': noMissionScale,
     photo: photoScale,
     steps: stepsScale,
@@ -113,7 +113,7 @@ export function MissionPicker({ missions, onChange }: MissionPickerProps) {
   const stepsAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: stepsScale.value }] }));
   const typingAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: typingScale.value }] }));
 
-  const animStyles: Record<CardKey, ReturnType<typeof useAnimatedStyle>> = {
+  const animStyles: Record<CardKey, any> = {
     'no-mission': noMissionAnimStyle,
     photo: photoAnimStyle,
     steps: stepsAnimStyle,
@@ -303,9 +303,9 @@ export function MissionPicker({ missions, onChange }: MissionPickerProps) {
                   {opt.type === 'photo' && (
                     <View style={s.configContent}>
                       <View style={s.photoSetupRow}>
-                        {mission.config?.photoUri ? (
+                        {mission.config?.targetPhotoUri ? (
                           <Image
-                            source={{ uri: mission.config.photoUri }}
+                            source={{ uri: mission.config.targetPhotoUri }}
                             style={s.photoThumb}
                           />
                         ) : (
@@ -314,7 +314,15 @@ export function MissionPicker({ missions, onChange }: MissionPickerProps) {
                           </View>
                         )}
                         <Pressable
-                          onPress={() => router.push('/photo-register')}
+                          onPress={() =>
+                            router.push({
+                              pathname: '/photo-register',
+                              params: {
+                                draftKey: photoMissionDraftKey,
+                                currentUri: mission.config?.targetPhotoUri ?? '',
+                              },
+                            })
+                          }
                           style={[s.setupPhotoBtn, { borderColor: colors.primary }]}
                         >
                           <Text style={[s.setupPhotoBtnText, { color: colors.primary }]}>
@@ -323,13 +331,40 @@ export function MissionPicker({ missions, onChange }: MissionPickerProps) {
                         </Pressable>
                       </View>
                       <Text style={[s.configNote, { color: colors.textSecondary }]}>
-                        You'll register a photo when the alarm first fires.
+                        Register the target photo before the alarm rings.
                       </Text>
                     </View>
                   )}
 
                   <Pressable
-                    onPress={() => router.push(`/mission/${opt.type}` as any)}
+                    onPress={() => {
+                      if (opt.type === 'photo') {
+                        router.push({
+                          pathname: '/mission/photo',
+                          params: {
+                            targetPhotoUri: mission.config?.targetPhotoUri ?? '',
+                          },
+                        });
+                        return;
+                      }
+
+                      if (opt.type === 'steps') {
+                        router.push({
+                          pathname: '/mission/steps',
+                          params: {
+                            targetSteps: String(mission.config?.targetSteps ?? 25),
+                          },
+                        });
+                        return;
+                      }
+
+                      router.push({
+                        pathname: '/mission/typing',
+                        params: {
+                          passageLength: mission.config?.passageLength ?? 'medium',
+                        },
+                      });
+                    }}
                     style={[s.tryBtn, { borderColor: colors.primary }]}
                   >
                     <Text style={[s.tryBtnText, { color: colors.primary }]}>Try →</Text>

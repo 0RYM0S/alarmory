@@ -36,6 +36,7 @@ export default function EditAlarmScreen() {
       ctaLabel="EDIT ALARM"
       submitLabel="Save"
       initialAlarm={alarm}
+      photoMissionDraftKey={`alarm:${alarm.id}`}
       onCancel={() => router.back()}
       onSubmit={handleSubmit}
     />

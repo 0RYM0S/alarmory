@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 
 // Placeholder for permission request helpers
 // Will be implemented in later stages when native modules are added
@@ -8,8 +8,13 @@ export async function requestNotificationPermission(): Promise<boolean> {
 }
 
 export async function requestCameraPermission(): Promise<boolean> {
-  // TODO: implement with expo-camera in Stage 7
-  return true;
+  const result = await ImagePicker.requestCameraPermissionsAsync();
+  return result.granted;
+}
+
+export async function requestMediaLibraryPermission(): Promise<boolean> {
+  const result = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  return result.granted;
 }
 
 export async function requestActivityRecognitionPermission(): Promise<boolean> {

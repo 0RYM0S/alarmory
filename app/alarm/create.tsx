@@ -23,6 +23,7 @@ export default function CreateAlarmScreen() {
       title="NEW ALARM"
       ctaLabel="SET ALARM"
       submitLabel="Save"
+      photoMissionDraftKey="alarm:create"
       onCancel={() => router.back()}
       onSubmit={handleSubmit}
     />

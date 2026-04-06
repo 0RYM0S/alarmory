@@ -13,6 +13,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from 'expo-router';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -27,12 +28,14 @@ import { MissionPicker } from '@/src/components/MissionPicker';
 import { computeNextFireTime } from '@/src/utils/time';
 import { Gradients, Shadows, ThemeColors } from '@/constants/Colors';
 import type { Alarm, AlarmMission } from '@/src/missions/types';
+import { getPhotoMissionDraft } from '@/src/state/photoMissionDraft';
 
 interface AlarmFormScreenProps {
   title: string;
   ctaLabel: string;
   submitLabel?: string;
   initialAlarm?: Alarm | null;
+  photoMissionDraftKey: string;
   onCancel: () => void;
   onSubmit: (alarm: Alarm) => void;
 }
@@ -214,6 +217,7 @@ export function AlarmFormScreen({
   ctaLabel,
   submitLabel = 'Save',
   initialAlarm,
+  photoMissionDraftKey,
   onCancel,
   onSubmit,
 }: AlarmFormScreenProps) {
@@ -237,6 +241,27 @@ export function AlarmFormScreen({
   const [customSnoozeInput, setCustomSnoozeInput] = useState(String(initialAlarm?.snoozeDuration ?? 5));
   const [missions, setMissions] = useState<AlarmMission[]>(initialAlarm?.missions ?? []);
   const [preventDismiss, setPreventDismiss] = useState(initialAlarm?.preventDismiss ?? false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const draftUri = getPhotoMissionDraft(photoMissionDraftKey);
+      if (!draftUri) return;
+
+      setMissions((currentMissions) =>
+        currentMissions.map((mission) =>
+          mission.type === 'photo'
+            ? {
+                ...mission,
+                config: {
+                  ...mission.config,
+                  targetPhotoUri: draftUri,
+                },
+              }
+            : mission,
+        ),
+      );
+    }, [photoMissionDraftKey]),
+  );
 
   function handleTimeChange(h: number, m: number) {
     setHour(h);
@@ -459,7 +484,11 @@ export function AlarmFormScreen({
         </View>
 
         <SectionHeader label="MISSION" colors={colors} />
-        <MissionPicker missions={missions} onChange={setMissions} />
+        <MissionPicker
+          missions={missions}
+          onChange={setMissions}
+          photoMissionDraftKey={photoMissionDraftKey}
+        />
 
         <SectionHeader label="DISMISS" colors={colors} />
         <View style={[styles.card, styles.cardRow, { backgroundColor: colors.surfaceContainer }]}>
