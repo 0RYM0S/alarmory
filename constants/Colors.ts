@@ -97,6 +97,7 @@ export const Colors = {
     // MD3 semantic tokens
     tertiary: '#914800',
     error: '#BA1A1A',
+    errorDim: '#BA1A1A',
   },
 };
 
