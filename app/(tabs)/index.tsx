@@ -44,6 +44,7 @@ const MISSION_ICONS: Record<MissionType, keyof typeof MaterialIcons.glyphMap> =
   };
 
 const SWIPE_THRESHOLD = 80;
+const SWIPE_REVEAL = SWIPE_THRESHOLD + 16;
 
 // ─── Swipe-to-delete card ────────────────────────────────────────────────────
 
@@ -59,10 +60,11 @@ function AlarmCard({ alarm, onToggle, onDelete }: AlarmCardProps) {
   const swipeX = useRef(new Animated.Value(0)).current;
   const currentX = useRef(0);
   const deleteRevealed = useRef(false);
+  const touchActive = useRef(false);
 
   const deleteOpacity = swipeX.interpolate({
-    inputRange: [0, 8, SWIPE_THRESHOLD + 16],
-    outputRange: [0, 0.5, 1],
+    inputRange: [-SWIPE_REVEAL, -8, 0],
+    outputRange: [1, 0.5, 0],
     extrapolate: "clamp",
   });
 
@@ -80,23 +82,24 @@ function AlarmCard({ alarm, onToggle, onDelete }: AlarmCardProps) {
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gs) =>
-        gs.dx > 8 && Math.abs(gs.dx) > Math.abs(gs.dy),
+        Math.abs(gs.dx) > 8 && Math.abs(gs.dx) > Math.abs(gs.dy),
       onMoveShouldSetPanResponderCapture: (_, gs) =>
-        gs.dx > 8 && Math.abs(gs.dx) > Math.abs(gs.dy),
+        Math.abs(gs.dx) > 8 && Math.abs(gs.dx) > Math.abs(gs.dy),
       onPanResponderGrant: () => {
         setTabScrollEnabled(false);
       },
       onPanResponderMove: (_, gs) => {
-        const clamped = Math.max(0, gs.dx);
+        const clamped = Math.min(0, Math.max(-SWIPE_REVEAL, gs.dx));
         swipeX.setValue(clamped);
         currentX.current = clamped;
       },
       onPanResponderRelease: () => {
         setTabScrollEnabled(true);
-        if (currentX.current > SWIPE_THRESHOLD) {
+        touchActive.current = false;
+        if (currentX.current < -SWIPE_THRESHOLD) {
           // Snap to reveal delete button
           Animated.spring(swipeX, {
-            toValue: SWIPE_THRESHOLD + 16,
+            toValue: -SWIPE_REVEAL,
             useNativeDriver: true,
           }).start();
           deleteRevealed.current = true;
@@ -112,10 +115,12 @@ function AlarmCard({ alarm, onToggle, onDelete }: AlarmCardProps) {
       },
       onPanResponderTerminate: () => {
         setTabScrollEnabled(true);
+        touchActive.current = false;
         Animated.spring(swipeX, { toValue: 0, useNativeDriver: true }).start();
         deleteRevealed.current = false;
         currentX.current = 0;
       },
+      onPanResponderTerminationRequest: () => false,
     }),
   ).current;
 
@@ -125,8 +130,10 @@ function AlarmCard({ alarm, onToggle, onDelete }: AlarmCardProps) {
       deleteRevealed.current = false;
       return;
     }
-    // TODO: replace with edit screen once /alarm/[id]/edit exists
-    router.push("/alarm/create");
+    router.push({
+      pathname: "/alarm/[id]/edit",
+      params: { id: alarm.id },
+    });
   };
 
   const isDisabled = !alarm.enabled;
@@ -153,6 +160,19 @@ function AlarmCard({ alarm, onToggle, onDelete }: AlarmCardProps) {
       {/* Swipeable card */}
       <Animated.View
         style={[{ transform: [{ translateX: swipeX }] }]}
+        onTouchStart={() => {
+          touchActive.current = true;
+          setTabScrollEnabled(false);
+        }}
+        onTouchEnd={() => {
+          if (!touchActive.current) return;
+          touchActive.current = false;
+          setTabScrollEnabled(true);
+        }}
+        onTouchCancel={() => {
+          touchActive.current = false;
+          setTabScrollEnabled(true);
+        }}
         {...panResponder.panHandlers}
       >
         <Pressable
@@ -473,7 +493,7 @@ export default function HomeScreen() {
       <ReAnimated.View style={[styles.fabContainer, fabShadow, fabAnimStyle]}>
         <Pressable onPress={handleNewAlarm}>
           <LinearGradient
-            colors={gradient.colors}
+            colors={gradient.colors as [string, string]}
             start={gradient.start}
             end={gradient.end}
             style={styles.fab}
@@ -614,10 +634,10 @@ const styles = StyleSheet.create({
   // Delete action
   deleteAction: {
     position: "absolute",
-    left: 0,
+    right: 0,
     top: 0,
     bottom: 0,
-    width: SWIPE_THRESHOLD + 16,
+    width: SWIPE_REVEAL,
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 24,
