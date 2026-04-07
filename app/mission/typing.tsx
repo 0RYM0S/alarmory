@@ -13,9 +13,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useTheme } from '@/src/hooks/useTheme';
 
-// ---------------------------------------------------------------------------
-// Passage library
-// ---------------------------------------------------------------------------
 const PASSAGES = {
   short: [
     'The early bird catches the worm.',
@@ -35,6 +32,7 @@ const PASSAGES = {
 } as const;
 
 type PassageLength = keyof typeof PASSAGES;
+type CharacterState = 'correct' | 'error' | 'pending' | 'current';
 
 function pickPassage(length: PassageLength): string {
   const list = PASSAGES[length];
@@ -76,28 +74,16 @@ function accuracy(typed: string, passage: string): number {
 
   const distance = dp[rows - 1][cols - 1];
   const maxLength = Math.max(source.length, target.length);
-
   return maxLength === 0 ? 1 : 1 - distance / maxLength;
 }
 
-// ---------------------------------------------------------------------------
-// Character state helpers
-// ---------------------------------------------------------------------------
-type CharacterState = 'correct' | 'error' | 'pending' | 'current';
-
 function getCharacterState(charIndex: number, typed: string): CharacterState {
-  if (charIndex < typed.length) {
-    return 'error';
-  }
+  if (charIndex < typed.length) return 'error';
   if (charIndex === typed.length) return 'current';
   return 'pending';
 }
 
-function getCharacterDisplay(
-  character: string,
-  state: CharacterState,
-  typedCharacter?: string,
-): string {
+function getCharacterDisplay(character: string, state: CharacterState, typedCharacter?: string): string {
   if (character === ' ') {
     if (state === 'error') {
       return typedCharacter === ' ' ? ' ' : '_';
@@ -109,27 +95,12 @@ function getCharacterDisplay(
   return character;
 }
 
-// ---------------------------------------------------------------------------
-// Color tokens (always dark)
-// ---------------------------------------------------------------------------
-const BG = '#0E0E0E';
-const SURFACE = '#1A1919';
-const SURFACE_HIGH = '#262626';
-const PRIMARY = '#A8A4FF';
-const PRIMARY_DIM = '#675DF9';
-const ON_SURFACE = '#FFFFFF';
-const ON_SURFACE_VARIANT = '#ADAAAA';
-const ERROR_COLOR = '#FF6E84';
-const SUCCESS_COLOR = '#2ED573';
-const OUTLINE_VARIANT = '#484847';
-const PENDING_COLOR = 'rgba(173,170,170,0.35)';
+function alpha(hex: string, amount: string) {
+  return `${hex}${amount}`;
+}
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 export default function TypingMissionScreen() {
-  useTheme(); // ensure theme context is available
-
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{ passageLength: string; alarmId: string }>();
 
@@ -145,17 +116,14 @@ export default function TypingMissionScreen() {
   const completedRef = useRef(false);
   const inputRef = useRef<TextInput>(null);
 
-  // Clock tick
   useEffect(() => {
     const id = setInterval(() => setCurrentTime(formatTime(new Date())), 1000);
     return () => clearInterval(id);
   }, []);
 
-  // Completion check
   const onComplete = useCallback(() => {
     if (completedRef.current) return;
     completedRef.current = true;
-    // TODO: notify alarm service
     setShowSuccess(true);
     setTimeout(() => router.back(), 1500);
   }, [router]);
@@ -188,41 +156,49 @@ export default function TypingMissionScreen() {
   }
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
 
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
       >
-        {/* Top bar */}
         <View style={styles.topBar}>
-          <Text style={styles.topBarLabel}>MISSION ACTIVE</Text>
-          <Text style={styles.topBarTime}>{currentTime}</Text>
+          <Text style={[styles.topBarLabel, { color: colors.primaryDim }]}>MISSION ACTIVE</Text>
+          <Text style={[styles.topBarTime, { color: colors.primaryDim }]}>{currentTime}</Text>
         </View>
 
-        {/* Heading */}
-        <Text style={styles.heading}>TYPE TO DISMISS</Text>
+        <Text style={[styles.heading, { color: colors.onSurface }]}>TYPE TO DISMISS</Text>
 
-        {/* Passage display */}
         <View style={styles.passagePressable} onTouchStart={focusInput}>
-          <View style={styles.passageContainer} pointerEvents="none">
+          <View
+            style={[
+              styles.passageContainer,
+              {
+                backgroundColor: colors.surfaceContainer,
+                borderColor: colors.outlineVariant,
+              },
+            ]}
+            pointerEvents="none"
+          >
             <Text style={styles.passageText}>
               {characters.map((character, i) => {
                 const state = getCharacterState(i, typed);
                 const typedCharacter = typedCharacters[i];
                 const isCorrect = typedCharacter === character;
+                const pendingColor = alpha(colors.onSurfaceVariant, isDark ? '59' : '70');
                 const color =
                   state === 'error' && !isCorrect
-                    ? ERROR_COLOR
+                    ? colors.error
                     : state === 'error' && isCorrect
-                      ? ON_SURFACE
+                      ? colors.onSurface
                       : state === 'current'
-                        ? PENDING_COLOR
+                        ? pendingColor
                         : state === 'pending'
-                          ? PENDING_COLOR
-                          : ON_SURFACE;
+                          ? pendingColor
+                          : colors.onSurface;
+
                 return (
                   <Text
                     key={i}
@@ -234,7 +210,7 @@ export default function TypingMissionScreen() {
                     ]}
                   >
                     {state === 'current' ? (
-                      <Text style={styles.caretOverlay}>|</Text>
+                      <Text style={[styles.caretOverlay, { color: colors.primary }]}>|</Text>
                     ) : null}
                     {getCharacterDisplay(character, state, typedCharacter)}
                   </Text>
@@ -242,7 +218,7 @@ export default function TypingMissionScreen() {
               })}
               {typedCharacters.length >= characters.length && (
                 <Text style={[styles.characterSpan, styles.trailingCaretSlot]}>
-                  <Text style={styles.caretOverlay}>|</Text>
+                  <Text style={[styles.caretOverlay, { color: colors.primary }]}>|</Text>
                   {' '}
                 </Text>
               )}
@@ -267,34 +243,31 @@ export default function TypingMissionScreen() {
           />
         </View>
 
-        {/* Progress bar */}
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${progressPct}%`,
-              },
-            ]}
-          />
+        <View style={[styles.progressTrack, { backgroundColor: colors.surfaceContainerHighest }]}>
+          <View style={[styles.progressFill, { width: `${progressPct}%`, backgroundColor: colors.primaryDim }]} />
         </View>
 
-        {/* Keyboard icon hint */}
         <Pressable style={styles.keyboardHint} onPress={focusInput}>
-          <MaterialIcons name="keyboard" size={28} color={ON_SURFACE_VARIANT} />
-          <Text style={styles.keyboardHintText}>Tap to type</Text>
+          <MaterialIcons name="keyboard" size={28} color={colors.onSurfaceVariant} />
+          <Text style={[styles.keyboardHintText, { color: colors.onSurfaceVariant }]}>Tap to type</Text>
         </Pressable>
       </KeyboardAvoidingView>
 
-      {/* Hidden input — captures all typing */}
-      {/* Success modal */}
       {showSuccess && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalPanel}>
-            <MaterialIcons name="check-circle" size={64} color={PRIMARY} />
-            <Text style={styles.modalTitle}>MISSION SUCCESS</Text>
-            <Text style={styles.modalSubtitle}>Alarm Dismissed</Text>
-            <View style={styles.modalButton}>
+        <View style={[styles.modalOverlay, { backgroundColor: alpha(colors.background, isDark ? 'D9' : 'CC') }]}>
+          <View
+            style={[
+              styles.modalPanel,
+              {
+                backgroundColor: colors.surfaceContainer,
+                borderColor: colors.outlineVariant,
+              },
+            ]}
+          >
+            <MaterialIcons name="check-circle" size={64} color={colors.primary} />
+            <Text style={[styles.modalTitle, { color: colors.onSurface }]}>MISSION SUCCESS</Text>
+            <Text style={[styles.modalSubtitle, { color: colors.onSurfaceVariant }]}>Alarm Dismissed</Text>
+            <View style={[styles.modalButton, { backgroundColor: colors.primaryDim }]}>
               <Text style={styles.modalButtonText}>Good Morning →</Text>
             </View>
           </View>
@@ -304,19 +277,13 @@ export default function TypingMissionScreen() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: BG,
   },
   flex: {
     flex: 1,
   },
-
-  // Top bar
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -329,33 +296,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.5,
-    color: PRIMARY_DIM,
   },
   topBarTime: {
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1,
-    color: PRIMARY_DIM,
   },
-
-  // Heading
   heading: {
     fontSize: 26,
     fontWeight: '800',
-    color: ON_SURFACE,
     textAlign: 'center',
     letterSpacing: 0.5,
     marginTop: 8,
     marginBottom: 32,
   },
-
-  // Passage
   passageContainer: {
-    backgroundColor: SURFACE,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: OUTLINE_VARIANT,
   },
   passagePressable: {
     borderRadius: 16,
@@ -383,17 +341,13 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   caretOverlay: {
-    color: PRIMARY,
     fontWeight: '800',
     position: 'absolute',
     left: -1,
     top: 0,
   },
-
-  // Progress bar
   progressTrack: {
     height: 4,
-    backgroundColor: SURFACE_HIGH,
     marginHorizontal: 24,
     marginTop: 20,
     borderRadius: 2,
@@ -401,11 +355,8 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: PRIMARY_DIM,
     borderRadius: 2,
   },
-
-  // Keyboard hint
   keyboardHint: {
     alignItems: 'center',
     marginTop: 32,
@@ -413,10 +364,8 @@ const styles = StyleSheet.create({
   },
   keyboardHintText: {
     fontSize: 13,
-    color: ON_SURFACE_VARIANT,
     letterSpacing: 0.5,
   },
-
   inputOverlay: {
     ...StyleSheet.absoluteFillObject,
     color: 'transparent',
@@ -424,45 +373,37 @@ const styles = StyleSheet.create({
     opacity: 0.01,
     zIndex: 2,
   },
-
-  // Success modal
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(14,14,14,0.85)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalPanel: {
-    backgroundColor: SURFACE,
     borderRadius: 24,
     padding: 36,
     alignItems: 'center',
     marginHorizontal: 32,
     borderWidth: 1,
-    borderColor: OUTLINE_VARIANT,
     gap: 12,
   },
   modalTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: ON_SURFACE,
     letterSpacing: 1.5,
     marginTop: 8,
   },
   modalSubtitle: {
     fontSize: 15,
-    color: ON_SURFACE_VARIANT,
     fontWeight: '500',
   },
   modalButton: {
     marginTop: 16,
-    backgroundColor: PRIMARY_DIM,
     borderRadius: 14,
     paddingHorizontal: 32,
     paddingVertical: 14,
   },
   modalButtonText: {
-    color: ON_SURFACE,
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.5,

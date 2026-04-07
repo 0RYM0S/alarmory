@@ -56,18 +56,18 @@ export const Colors = {
     surface: '#FFFFFF',
     surfaceElevated: '#FFFFFF',
     text: '#191C1D',
-    textSecondary: '#464555',
-    textTertiary: '#777587',
-    primary: '#4D41DF',
-    primaryLight: '#C4C0FF',
+    textSecondary: '#5E5142',
+    textTertiary: '#8E7D69',
+    primary: '#D97A1E',
+    primaryLight: '#F6D39A',
     danger: '#914800',
     success: '#2ED573',
     warning: '#FFA502',
-    border: '#C7C4D8',
+    border: '#D9CCBB',
     tabBar: '#FFFFFF',
-    tabIconDefault: '#464555',
-    tabIconSelected: '#4D41DF',
-    tint: '#4D41DF',
+    tabIconDefault: '#5E5142',
+    tabIconSelected: '#D97A1E',
+    tint: '#D97A1E',
 
     // MD3 surface tokens
     surfaceContainerLowest: '#FFFFFF',
@@ -81,18 +81,18 @@ export const Colors = {
     // MD3 on-color tokens
     onBackground: '#191C1D',
     onSurface: '#191C1D',
-    onSurfaceVariant: '#464555',
+    onSurfaceVariant: '#5E5142',
 
     // MD3 primary tokens
-    primaryDim: '#675DF9',
-    primaryFixed: '#C4C0FF',
-    primaryFixedDim: '#C4C0FF',
+    primaryDim: '#F0A43A',
+    primaryFixed: '#F6D39A',
+    primaryFixedDim: '#EAB65B',
     onPrimary: '#FFFFFF',
-    onPrimaryFixed: '#100069',
+    onPrimaryFixed: '#5B3200',
 
     // MD3 outline tokens
-    outline: '#777587',
-    outlineVariant: '#C7C4D8',
+    outline: '#8E7D69',
+    outlineVariant: '#D9CCBB',
 
     // MD3 semantic tokens
     tertiary: '#914800',
@@ -111,7 +111,7 @@ export const Gradients = {
     primary: { colors: ['#A8A4FF', '#675DF9'] as string[], start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
   },
   light: {
-    primary: { colors: ['#4D41DF', '#675DF9'] as string[], start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
+    primary: { colors: ['#F0A43A', '#D97A1E'] as string[], start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
   },
 };
 

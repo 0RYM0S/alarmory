@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   SafeAreaView,
@@ -9,54 +9,37 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useTheme } from '@/src/hooks/useTheme';
 
-// ── Color tokens (always dark) ────────────────────────────────────────────────
-const C = {
-  background: '#0E0E0E',
-  surfaceContainer: '#1A1919',
-  surfaceContainerHighest: '#262626',
-  primary: '#A8A4FF',
-  primaryDim: '#675DF9',
-  onSurface: '#FFF',
-  onSurfaceVariant: '#ADAAAA',
-  tertiary: '#FF7075',
-  success: '#2ED573',
-  text: '#FFF',
-  textSecondary: '#ADAAAA',
-} as const;
-
-// ── Progress Ring (pure RN donut) ─────────────────────────────────────────────
 const RING_SIZE = 288;
 const RING_THICKNESS = 18;
 const INNER_SIZE = RING_SIZE - RING_THICKNESS * 2;
 
+type MissionPalette = {
+  background: string;
+  surfaceContainer: string;
+  surfaceContainerHighest: string;
+  primary: string;
+  primaryDim: string;
+  onSurface: string;
+  onSurfaceVariant: string;
+  tertiary: string;
+};
+
 interface ProgressRingProps {
-  progress: number; // 0–1
+  progress: number;
+  palette: MissionPalette;
 }
 
-function ProgressRing({ progress }: ProgressRingProps) {
+function ProgressRing({ progress, palette }: ProgressRingProps) {
   const clamped = Math.min(1, Math.max(0, progress));
-
-  // We render the donut using two half-circle masks (left + right arcs),
-  // revealing a gradient ring beneath a background circle overlay.
-  //
-  // Architecture:
-  //   Outer ring (surfaceContainerHighest track, full circle)
-  //     └─ LinearGradient fill (primary→primaryDim), clipped by progress mask
-  //     └─ Inner cutout (background color, centered)
-  //
-  // Progress mask: split into right half and left half.
-  //   • 0–50%: only right half rotates; left half stays hidden
-  //   • 50–100%: right half fully shown; left half rotates to reveal remainder
   const rightDeg = clamped <= 0.5 ? clamped * 2 * 180 : 180;
   const leftDeg = clamped > 0.5 ? (clamped - 0.5) * 2 * 180 : 0;
 
   return (
     <View style={ringStyles.root}>
-      {/* Track circle */}
-      <View style={ringStyles.track} />
+      <View style={[ringStyles.track, { backgroundColor: palette.surfaceContainerHighest }]} />
 
-      {/* Progress arc — right half */}
       <View style={[ringStyles.halfWrapper, ringStyles.rightWrapper]}>
         <View
           style={[
@@ -66,7 +49,7 @@ function ProgressRing({ progress }: ProgressRingProps) {
           ]}
         >
           <LinearGradient
-            colors={[C.primaryDim, C.primary]}
+            colors={[palette.primaryDim, palette.primary]}
             start={{ x: 0, y: 1 }}
             end={{ x: 1, y: 0 }}
             style={ringStyles.gradientFill}
@@ -74,7 +57,6 @@ function ProgressRing({ progress }: ProgressRingProps) {
         </View>
       </View>
 
-      {/* Progress arc — left half (only visible past 50%) */}
       {clamped > 0.5 && (
         <View style={[ringStyles.halfWrapper, ringStyles.leftWrapper]}>
           <View
@@ -85,7 +67,7 @@ function ProgressRing({ progress }: ProgressRingProps) {
             ]}
           >
             <LinearGradient
-              colors={[C.primaryDim, C.primary]}
+              colors={[palette.primaryDim, palette.primary]}
               start={{ x: 1, y: 1 }}
               end={{ x: 0, y: 0 }}
               style={ringStyles.gradientFill}
@@ -94,8 +76,7 @@ function ProgressRing({ progress }: ProgressRingProps) {
         </View>
       )}
 
-      {/* Inner cutout */}
-      <View style={ringStyles.innerCutout} />
+      <View style={[ringStyles.innerCutout, { backgroundColor: palette.background }]} />
     </View>
   );
 }
@@ -112,7 +93,6 @@ const ringStyles = StyleSheet.create({
     width: RING_SIZE,
     height: RING_SIZE,
     borderRadius: RING_SIZE / 2,
-    backgroundColor: C.surfaceContainerHighest,
   },
   halfWrapper: {
     position: 'absolute',
@@ -151,25 +131,30 @@ const ringStyles = StyleSheet.create({
     width: INNER_SIZE,
     height: INNER_SIZE,
     borderRadius: INNER_SIZE / 2,
-    backgroundColor: C.background,
   },
 });
 
-// ── Stat Card ─────────────────────────────────────────────────────────────────
 interface StatCardProps {
   icon: keyof typeof MaterialIcons.glyphMap;
   iconColor: string;
   label: string;
   value: string;
   accentLeft?: boolean;
+  palette: MissionPalette;
 }
 
-function StatCard({ icon, iconColor, label, value, accentLeft }: StatCardProps) {
+function StatCard({ icon, iconColor, label, value, accentLeft, palette }: StatCardProps) {
   return (
-    <View style={[cardStyles.card, accentLeft && cardStyles.accentLeft]}>
+    <View
+      style={[
+        cardStyles.card,
+        { backgroundColor: palette.surfaceContainer },
+        accentLeft && { borderLeftWidth: 3, borderLeftColor: palette.primaryDim },
+      ]}
+    >
       <MaterialIcons name={icon} size={20} color={iconColor} style={cardStyles.icon} />
-      <Text style={cardStyles.label}>{label}</Text>
-      <Text style={cardStyles.value}>{value}</Text>
+      <Text style={[cardStyles.label, { color: palette.onSurfaceVariant }]}>{label}</Text>
+      <Text style={[cardStyles.value, { color: palette.onSurface }]}>{value}</Text>
     </View>
   );
 }
@@ -177,40 +162,32 @@ function StatCard({ icon, iconColor, label, value, accentLeft }: StatCardProps) 
 const cardStyles = StyleSheet.create({
   card: {
     flex: 1,
-    backgroundColor: C.surfaceContainer,
     borderRadius: 16,
     padding: 16,
     gap: 4,
-  },
-  accentLeft: {
-    borderLeftWidth: 3,
-    borderLeftColor: C.primaryDim,
   },
   icon: {
     marginBottom: 4,
   },
   label: {
     fontSize: 11,
-    color: C.textSecondary,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   value: {
     fontSize: 20,
     fontWeight: '700',
-    color: C.text,
   },
 });
 
-// ── Elapsed time helper ───────────────────────────────────────────────────────
 function formatElapsed(seconds: number): string {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
   const s = (seconds % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
 }
 
-// ── Main Screen ───────────────────────────────────────────────────────────────
 export default function StepMissionScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
   const { targetSteps, alarmId: _alarmId } = useLocalSearchParams<{
     targetSteps: string;
@@ -221,33 +198,27 @@ export default function StepMissionScreen() {
   const [stepCount, setStepCount] = useState(0);
   const [elapsed, setElapsed] = useState(0);
 
-  // Elapsed timer
+  const palette: MissionPalette = {
+    background: colors.background,
+    surfaceContainer: colors.surfaceContainer,
+    surfaceContainerHighest: colors.surfaceContainerHighest,
+    primary: colors.primary,
+    primaryDim: colors.primaryDim,
+    onSurface: colors.onSurface,
+    onSurfaceVariant: colors.onSurfaceVariant,
+    tertiary: colors.tertiary,
+  };
+
   useEffect(() => {
     const id = setInterval(() => setElapsed((s) => s + 1), 1000);
     return () => clearInterval(id);
   }, []);
 
-  // TODO: subscribe to expo-sensors Pedometer here in Stage 8
-  // Example:
-  //   Pedometer.watchStepCount(result => setStepCount(result.steps));
-
-  // Completion check
   useEffect(() => {
     if (stepCount >= target) {
-      onMissionComplete();
+      router.back();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepCount, target]);
-
-  function onMissionComplete() {
-    // TODO: notify alarm service mission complete
-    router.back();
-  }
-
-  function onEmergencyStop() {
-    // TODO: allow dismissal with penalty
-    router.back();
-  }
+  }, [router, stepCount, target]);
 
   const progress = Math.min(1, stepCount / target);
   const remaining = Math.max(0, target - stepCount);
@@ -256,71 +227,66 @@ export default function StepMissionScreen() {
   const statusMessage = isComplete
     ? 'Mission complete!'
     : stepCount === 0
-    ? 'Start walking...'
-    : 'Keep walking...';
+      ? 'Start walking...'
+      : 'Keep walking...';
 
   const statusSubtitle = isComplete
     ? 'Great job! Alarm dismissed.'
     : `${remaining} more step${remaining !== 1 ? 's' : ''} to deactivate the alarm.`;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <View style={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.microLabel}>ACTIVE MISSION</Text>
-          <Text style={styles.heading}>Step Counter</Text>
+          <Text style={[styles.microLabel, { color: palette.onSurfaceVariant }]}>ACTIVE MISSION</Text>
+          <Text style={[styles.heading, { color: palette.onSurface }]}>Step Counter</Text>
         </View>
 
-        {/* Progress ring + center text */}
         <View style={styles.ringSection}>
-          <ProgressRing progress={progress} />
-
-          {/* Center content — overlaid absolutely */}
+          <ProgressRing progress={progress} palette={palette} />
           <View style={styles.ringCenter}>
             <View style={styles.stepCountRow}>
-              <Text style={styles.stepCountBig}>{stepCount}</Text>
-              <Text style={styles.stepTarget}>/ {target}</Text>
+              <Text style={[styles.stepCountBig, { color: palette.onSurface }]}>{stepCount}</Text>
+              <Text style={[styles.stepTarget, { color: palette.onSurfaceVariant }]}>/ {target}</Text>
             </View>
-            <Text style={styles.stepsTakenLabel}>STEPS TAKEN</Text>
+            <Text style={[styles.stepsTakenLabel, { color: palette.primary }]}>STEPS TAKEN</Text>
           </View>
         </View>
 
-        {/* Status message */}
         <View style={styles.statusSection}>
-          <Text style={styles.statusMessage}>{statusMessage}</Text>
-          <Text style={styles.statusSubtitle}>{statusSubtitle}</Text>
+          <Text style={[styles.statusMessage, { color: palette.onSurface }]}>{statusMessage}</Text>
+          <Text style={[styles.statusSubtitle, { color: palette.onSurfaceVariant }]}>{statusSubtitle}</Text>
         </View>
 
-        {/* Stat cards */}
         <View style={styles.statRow}>
           <StatCard
             icon="directions-walk"
-            iconColor={C.primary}
+            iconColor={palette.primary}
             label="Cadence"
-            value="—"
+            value="-"
             accentLeft
+            palette={palette}
           />
-          {/* TODO: compute cadence from step rate in Stage 8 */}
           <View style={styles.statGap} />
           <StatCard
             icon="timer"
-            iconColor={C.tertiary}
+            iconColor={palette.tertiary}
             label="Elapsed"
             value={formatElapsed(elapsed)}
+            palette={palette}
           />
         </View>
 
-        {/* Emergency stop */}
         <View style={styles.emergencyWrapper}>
           <Pressable
-            onPress={onEmergencyStop}
+            onPress={() => router.back()}
             style={({ pressed }) => [
               styles.emergencyButton,
+              { backgroundColor: `${palette.surfaceContainerHighest}88` },
               pressed && styles.emergencyButtonPressed,
             ]}
           >
-            <Text style={styles.emergencyText}>Emergency Stop</Text>
+            <Text style={[styles.emergencyText, { color: palette.onSurfaceVariant }]}>Emergency Stop</Text>
           </Pressable>
         </View>
       </View>
@@ -331,7 +297,6 @@ export default function StepMissionScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: C.background,
   },
   container: {
     flex: 1,
@@ -340,8 +305,6 @@ const styles = StyleSheet.create({
     paddingTop: 32,
     paddingBottom: 24,
   },
-
-  // Header
   header: {
     alignItems: 'center',
     marginBottom: 40,
@@ -349,16 +312,12 @@ const styles = StyleSheet.create({
   microLabel: {
     fontSize: 11,
     letterSpacing: 2,
-    color: C.textSecondary,
     marginBottom: 6,
   },
   heading: {
     fontSize: 28,
     fontWeight: '700',
-    color: C.text,
   },
-
-  // Ring
   ringSection: {
     width: RING_SIZE,
     height: RING_SIZE,
@@ -378,23 +337,18 @@ const styles = StyleSheet.create({
   stepCountBig: {
     fontSize: 64,
     fontWeight: '800',
-    color: C.text,
     lineHeight: 72,
   },
   stepTarget: {
     fontSize: 22,
     fontWeight: '500',
-    color: C.textSecondary,
     marginBottom: 8,
   },
   stepsTakenLabel: {
     fontSize: 11,
     letterSpacing: 2,
-    color: C.primary,
     marginTop: 2,
   },
-
-  // Status
   statusSection: {
     alignItems: 'center',
     marginBottom: 36,
@@ -403,17 +357,13 @@ const styles = StyleSheet.create({
   statusMessage: {
     fontSize: 22,
     fontWeight: '600',
-    color: C.text,
     marginBottom: 8,
   },
   statusSubtitle: {
     fontSize: 14,
-    color: C.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
-
-  // Stat cards
   statRow: {
     flexDirection: 'row',
     width: '100%',
@@ -422,15 +372,12 @@ const styles = StyleSheet.create({
   statGap: {
     width: 12,
   },
-
-  // Emergency stop
   emergencyWrapper: {
     marginTop: 32,
     width: '100%',
     alignItems: 'center',
   },
   emergencyButton: {
-    backgroundColor: `${C.surfaceContainerHighest}88`,
     borderRadius: 999,
     paddingVertical: 12,
     paddingHorizontal: 32,
@@ -440,7 +387,6 @@ const styles = StyleSheet.create({
   },
   emergencyText: {
     fontSize: 14,
-    color: C.textSecondary,
     fontWeight: '500',
     letterSpacing: 0.3,
   },

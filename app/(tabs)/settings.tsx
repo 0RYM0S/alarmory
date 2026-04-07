@@ -26,7 +26,7 @@ type ThemeOption = ThemeScheme;
 // ---------------------------------------------------------------------------
 const THEME_PREVIEW: Record<ThemeOption, { bg: string; surface: string; accent: string }> = {
   dark:   { bg: '#0E0E0E', surface: '#1A1919', accent: '#A8A4FF' },
-  light:  { bg: '#F8F9FA', surface: '#FFFFFF', accent: '#4D41DF' },
+  light:  { bg: '#F8F9FA', surface: '#FFFFFF', accent: '#D97A1E' },
   system: { bg: '#262626', surface: '#3A3A3A', accent: '#675DF9' },
 };
 
