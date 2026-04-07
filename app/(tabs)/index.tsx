@@ -32,6 +32,7 @@ import {
   formatCountdown,
   formatAlarmTime,
   formatRepeatDays,
+  formatOneTimeAlarmDate,
 } from "@/src/utils/time";
 
 type MissionType = "photo" | "steps" | "typing";
@@ -70,7 +71,10 @@ function AlarmCard({ alarm, onToggle, onDelete }: AlarmCardProps) {
 
   const timeStr = formatAlarmTime(alarm.hour, alarm.minute);
 
-  const repeatStr = formatRepeatDays(alarm.repeatDays);
+  const repeatStr =
+    alarm.repeatDays.length === 0
+      ? formatOneTimeAlarmDate(alarm.nextFireTime)
+      : formatRepeatDays(alarm.repeatDays);
   const missions = alarm.missions as Array<{ type: MissionType }>;
 
   const cardShadow = isDark ? Shadows.dark.card : Shadows.light.card;

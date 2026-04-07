@@ -61,3 +61,22 @@ export function formatRepeatDays(days: number[]): string {
   const names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   return days.sort((a, b) => a - b).map(d => names[d]).join(', ');
 }
+
+export function formatOneTimeAlarmDate(nextFireTime: number): string {
+  const target = new Date(nextFireTime);
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
+  const sameDay = (left: Date, right: Date) =>
+    left.getFullYear() === right.getFullYear()
+    && left.getMonth() === right.getMonth()
+    && left.getDate() === right.getDate();
+
+  if (sameDay(target, today)) return 'Today';
+  if (sameDay(target, tomorrow)) return 'Tomorrow';
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[target.getMonth()]} ${target.getDate()}`;
+}

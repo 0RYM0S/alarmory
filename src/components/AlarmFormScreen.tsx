@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -95,95 +95,241 @@ function inferSpecificDate(alarm: Alarm): Date | null {
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
-const ITEM_H = 48;
+const ITEM_H = 56;
+const DATE_VISIBLE_ITEMS = 3;
+const DATE_PICKER_HEIGHT = ITEM_H * DATE_VISIBLE_ITEMS;
 const SNOOZE_PRESETS = [1, 5, 10, 20, 30, 60];
 
 interface DatePickerModalProps {
   visible: boolean;
   initial: Date;
+  animateFromStart: boolean;
   onConfirm: (date: Date) => void;
   onCancel: () => void;
   colors: any;
 }
 
-function DatePickerModal({ visible, initial, onConfirm, onCancel, colors }: DatePickerModalProps) {
-  const today = new Date();
-  const [selMonth, setSelMonth] = useState(initial.getMonth());
-  const [selDay, setSelDay] = useState(initial.getDate());
-  const [selYear, setSelYear] = useState(initial.getFullYear());
+const DATE_PICKER_START = new Date(2026, 0, 1);
 
-  const years = Array.from({ length: 3 }, (_, i) => today.getFullYear() + i);
+interface DateScrollColumnProps {
+  items: (string | number)[];
+  selected: number | string;
+  onSelect: (v: any) => void;
+  width: number;
+  scrollRef: React.RefObject<ScrollView | null>;
+  colors: any;
+}
+
+function DateScrollColumn({
+  items,
+  selected,
+  onSelect,
+  width,
+  scrollRef,
+  colors,
+}: DateScrollColumnProps) {
+  const selectedIndex = Math.max(
+    0,
+    items.findIndex((item) => item === selected),
+  );
+
+  return (
+    <View style={[datePickerStyles.columnWrapper, { width, height: DATE_PICKER_HEIGHT }]}>
+      <View
+        pointerEvents="none"
+        style={[
+          datePickerStyles.selectionBar,
+          {
+            backgroundColor: `${colors.primary}26`,
+            top: ITEM_H,
+          },
+        ]}
+      />
+      <ScrollView
+        ref={scrollRef}
+        style={datePickerStyles.columnScroll}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        disableIntervalMomentum={false}
+        nestedScrollEnabled
+        scrollEventThrottle={16}
+        contentContainerStyle={datePickerStyles.columnContent}
+        onMomentumScrollEnd={(e) => {
+          const rawIndex = e.nativeEvent.contentOffset.y / ITEM_H;
+          const nextIndex = Math.round(rawIndex);
+          const clampedIndex = Math.max(0, Math.min(nextIndex, items.length - 1));
+          onSelect(items[clampedIndex]);
+        }}
+      >
+        {items.map((item, itemIndex) => {
+          const isSelected = itemIndex === selectedIndex;
+          return (
+            <View
+              key={`${itemIndex}-${String(item)}`}
+              style={datePickerStyles.item}
+            >
+              <Text
+                style={[
+                  datePickerStyles.itemText,
+                  {
+                    color: isSelected ? colors.primary : colors.onSurfaceVariant,
+                    fontWeight: isSelected ? '700' : '400',
+                    fontSize: isSelected ? 24 : 16,
+                    opacity: isSelected ? 1 : 0.55,
+                  },
+                ]}
+              >
+                {item}
+              </Text>
+            </View>
+          );
+        })}
+      </ScrollView>
+      <View pointerEvents="none" style={datePickerStyles.gradientTop}>
+        <LinearGradient colors={[colors.surfaceContainer, `${colors.surfaceContainer}00`]} style={datePickerStyles.flex} />
+      </View>
+      <View pointerEvents="none" style={datePickerStyles.gradientBottom}>
+        <LinearGradient colors={[`${colors.surfaceContainer}00`, colors.surfaceContainer]} style={datePickerStyles.flex} />
+      </View>
+    </View>
+  );
+}
+
+function DatePickerModal({ visible, initial, animateFromStart, onConfirm, onCancel, colors }: DatePickerModalProps) {
+  const [today] = useState(() => new Date());
+  const [selMonth, setSelMonth] = useState(today.getMonth());
+  const [selDay, setSelDay] = useState(today.getDate());
+  const [selYear, setSelYear] = useState(today.getFullYear());
+
+  const startYear = Math.min(DATE_PICKER_START.getFullYear(), initial.getFullYear(), today.getFullYear());
+  const endYear = Math.max(today.getFullYear() + 2, initial.getFullYear());
+  const years = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i);
   const daysInMonth = new Date(selYear, selMonth + 1, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-
+  const clampedDay = Math.min(selDay, daysInMonth);
+  const introIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const monthRef = useRef<ScrollView>(null);
   const dayRef = useRef<ScrollView>(null);
   const yearRef = useRef<ScrollView>(null);
-  const clampedDay = Math.min(selDay, daysInMonth);
 
-  function Column({ items, selected, onSelect, scrollRef, width }: {
-    items: (string | number)[];
-    selected: number | string;
-    onSelect: (v: any) => void;
-    scrollRef: React.RefObject<ScrollView | null>;
-    width: number;
-  }) {
-    return (
-      <View style={{ width, height: ITEM_H * 5, overflow: 'hidden' }}>
-        <ScrollView
-          ref={scrollRef}
-          snapToInterval={ITEM_H}
-          decelerationRate="fast"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingVertical: ITEM_H * 2 }}
-          onMomentumScrollEnd={(e) => {
-            const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
-            onSelect(items[Math.max(0, Math.min(idx, items.length - 1))]);
-          }}
-          scrollEventThrottle={16}
-        >
-          {items.map((item, i) => {
-            const isSelected = item === selected || (typeof item === 'number' && item === selected);
-            return (
-              <View key={i} style={[datePickerStyles.item, { height: ITEM_H }]}>
-                <Text style={[datePickerStyles.itemText, { color: isSelected ? colors.primary : colors.onSurfaceVariant, fontWeight: isSelected ? '700' : '400' }]}>
-                  {item}
-                </Text>
-              </View>
-            );
-          })}
-        </ScrollView>
-        <View pointerEvents="none" style={[datePickerStyles.selector, { borderColor: colors.primaryDim }]} />
-      </View>
-    );
+  function syncColumns(date: Date, animated = false) {
+    const nextMonth = date.getMonth();
+    const nextDay = date.getDate();
+    const nextYear = date.getFullYear();
+
+    setSelMonth(nextMonth);
+    setSelDay(nextDay);
+    setSelYear(nextYear);
+
+    scrollToIndex(monthRef, nextMonth, animated);
+    scrollToIndex(dayRef, nextDay - 1, animated);
+    scrollToIndex(yearRef, Math.max(0, years.indexOf(nextYear)), animated);
   }
+
+  function scrollToIndex(
+    scrollRef: React.RefObject<ScrollView | null>,
+    index: number,
+    animated: boolean,
+  ) {
+    scrollRef.current?.scrollTo({ y: index * ITEM_H, animated });
+  }
+
+  useEffect(() => {
+    if (selDay <= daysInMonth) return;
+    setSelDay(daysInMonth);
+    scrollToIndex(dayRef, daysInMonth - 1, true);
+  }, [daysInMonth, selDay]);
+
+  useEffect(() => {
+    if (!visible) return undefined;
+
+    if (introIntervalRef.current) {
+      clearInterval(introIntervalRef.current);
+      introIntervalRef.current = null;
+    }
+
+    let introTimer: ReturnType<typeof setTimeout> | undefined;
+
+    if (animateFromStart) {
+      syncColumns(DATE_PICKER_START, false);
+      introTimer = setTimeout(() => {
+        const startMonth = DATE_PICKER_START.getMonth();
+        const startDay = DATE_PICKER_START.getDate();
+        const startYearValue = DATE_PICKER_START.getFullYear();
+        const targetMonth = today.getMonth();
+        const targetDay = today.getDate();
+        const targetYearValue = today.getFullYear();
+        const durationMs = 520;
+        const frameMs = 16;
+        let elapsedMs = 0;
+
+        introIntervalRef.current = setInterval(() => {
+          elapsedMs += frameMs;
+          const linear = Math.min(elapsedMs / durationMs, 1);
+          const eased = 1 - Math.pow(1 - linear, 3);
+
+          syncColumns(
+            new Date(
+              Math.round(startYearValue + (targetYearValue - startYearValue) * eased),
+              Math.round(startMonth + (targetMonth - startMonth) * eased),
+              Math.round(startDay + (targetDay - startDay) * eased),
+            ),
+            false,
+          );
+
+          if (linear >= 1 && introIntervalRef.current) {
+            clearInterval(introIntervalRef.current);
+            introIntervalRef.current = null;
+            syncColumns(today, false);
+          }
+        }, frameMs);
+      }, 120);
+    } else {
+      introTimer = setTimeout(() => {
+        syncColumns(initial, false);
+      }, 50);
+    }
+
+    return () => {
+      if (introTimer) clearTimeout(introTimer);
+      if (introIntervalRef.current) {
+        clearInterval(introIntervalRef.current);
+        introIntervalRef.current = null;
+      }
+    };
+  }, [visible, animateFromStart, initial, today]);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={datePickerStyles.overlay} onPress={onCancel}>
-        <Pressable style={[datePickerStyles.panel, { backgroundColor: colors.surfaceContainer }]} onPress={() => {}}>
+      <View style={datePickerStyles.overlay}>
+        <Pressable style={datePickerStyles.backdrop} onPress={onCancel} />
+        <View style={[datePickerStyles.panel, { backgroundColor: colors.surfaceContainer }]}>
           <Text style={[datePickerStyles.title, { color: colors.onSurface }]}>SELECT DATE</Text>
           <View style={datePickerStyles.columns}>
-            <Column
+            <DateScrollColumn
               items={MONTHS}
               selected={MONTHS[selMonth]}
               onSelect={(v: string) => setSelMonth(MONTHS.indexOf(v))}
-              scrollRef={monthRef}
               width={120}
+              scrollRef={monthRef}
+              colors={colors}
             />
-            <Column
+            <DateScrollColumn
               items={days}
               selected={clampedDay}
               onSelect={(v: number) => setSelDay(v)}
-              scrollRef={dayRef}
               width={56}
+              scrollRef={dayRef}
+              colors={colors}
             />
-            <Column
+            <DateScrollColumn
               items={years}
               selected={selYear}
               onSelect={(v: number) => setSelYear(v)}
-              scrollRef={yearRef}
               width={72}
+              scrollRef={yearRef}
+              colors={colors}
             />
           </View>
           <View style={datePickerStyles.actions}>
@@ -197,8 +343,8 @@ function DatePickerModal({ visible, initial, onConfirm, onCancel, colors }: Date
               <Text style={[datePickerStyles.btnText, { color: '#FFFFFF' }]}>Confirm</Text>
             </Pressable>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -372,13 +518,7 @@ export function AlarmFormScreen({
           onChange={handleRepeatDaysChange}
           renderDateChip={() => (
             <Pressable
-              onPress={() => {
-                if (specificDate) {
-                  setSpecificDate(null);
-                } else {
-                  setShowDatePicker(true);
-                }
-              }}
+              onPress={() => setShowDatePicker(true)}
               style={[
                 styles.dateChip,
                 {
@@ -397,6 +537,7 @@ export function AlarmFormScreen({
         <DatePickerModal
           visible={showDatePicker}
           initial={specificDate ?? new Date()}
+          animateFromStart={!specificDate}
           onConfirm={(date) => { setSpecificDate(date); setRepeatDays([]); setShowDatePicker(false); }}
           onCancel={() => setShowDatePicker(false)}
           colors={colors}
@@ -525,13 +666,20 @@ export function AlarmFormScreen({
 }
 
 const datePickerStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  flex: { flex: 1 },
+  overlay: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
   panel: { borderRadius: 20, padding: 24, width: 320, alignItems: 'center' },
   title: { fontSize: 12, fontWeight: '700', letterSpacing: 2, marginBottom: 20 },
   columns: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  item: { alignItems: 'center', justifyContent: 'center' },
-  itemText: { fontSize: 16 },
-  selector: { position: 'absolute', top: ITEM_H * 2, left: 4, right: 4, height: ITEM_H, borderRadius: 8, borderWidth: 1.5 },
+  columnWrapper: { overflow: 'hidden', position: 'relative' },
+  columnScroll: { flex: 1 },
+  columnContent: { paddingVertical: ITEM_H },
+  selectionBar: { position: 'absolute', left: 0, right: 0, height: ITEM_H, borderRadius: 8, zIndex: 1 },
+  item: { height: ITEM_H, alignItems: 'center', justifyContent: 'center' },
+  itemText: { textAlign: 'center' },
+  gradientTop: { position: 'absolute', top: 0, left: 0, right: 0, height: ITEM_H, zIndex: 2 },
+  gradientBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, height: ITEM_H, zIndex: 2 },
   actions: { flexDirection: 'row', gap: 12, marginTop: 24 },
   btn: { flex: 1, height: 44, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   btnText: { fontSize: 15, fontWeight: '600' },
