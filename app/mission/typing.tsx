@@ -48,28 +48,65 @@ function formatTime(date: Date): string {
 }
 
 function accuracy(typed: string, passage: string): number {
-  const tWords = typed.trim().split(/\s+/);
-  const pWords = passage.trim().split(/\s+/);
-  const correct = tWords.filter((w, i) => w === pWords[i]).length;
-  return pWords.length === 0 ? 0 : correct / pWords.length;
+  const source = typed.trimEnd();
+  const target = passage.trimEnd();
+  const rows = source.length + 1;
+  const cols = target.length + 1;
+
+  if (rows === 1 && cols === 1) return 1;
+
+  const dp = Array.from({ length: rows }, (_, row) =>
+    Array.from({ length: cols }, (_, col) => {
+      if (row === 0) return col;
+      if (col === 0) return row;
+      return 0;
+    }),
+  );
+
+  for (let row = 1; row < rows; row += 1) {
+    for (let col = 1; col < cols; col += 1) {
+      const substitutionCost = source[row - 1] === target[col - 1] ? 0 : 1;
+      dp[row][col] = Math.min(
+        dp[row - 1][col] + 1,
+        dp[row][col - 1] + 1,
+        dp[row - 1][col - 1] + substitutionCost,
+      );
+    }
+  }
+
+  const distance = dp[rows - 1][cols - 1];
+  const maxLength = Math.max(source.length, target.length);
+
+  return maxLength === 0 ? 1 : 1 - distance / maxLength;
 }
 
 // ---------------------------------------------------------------------------
-// Word state helpers
+// Character state helpers
 // ---------------------------------------------------------------------------
-type WordState = 'correct' | 'error' | 'pending' | 'current';
+type CharacterState = 'correct' | 'error' | 'pending' | 'current';
 
-function getWordState(
-  wordIndex: number,
-  typedWords: string[],
-  passageWords: string[],
-): WordState {
-  const currentIdx = typedWords.length - 1;
-  if (wordIndex < currentIdx) {
-    return typedWords[wordIndex] === passageWords[wordIndex] ? 'correct' : 'error';
+function getCharacterState(charIndex: number, typed: string): CharacterState {
+  if (charIndex < typed.length) {
+    return 'error';
   }
-  if (wordIndex === currentIdx) return 'current';
+  if (charIndex === typed.length) return 'current';
   return 'pending';
+}
+
+function getCharacterDisplay(
+  character: string,
+  state: CharacterState,
+  typedCharacter?: string,
+): string {
+  if (character === ' ') {
+    if (state === 'error') {
+      return typedCharacter === ' ' ? ' ' : '_';
+    }
+    return ' ';
+  }
+  if (character === '\n') return '↵';
+  if (character === '\t') return '⇥';
+  return character;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,9 +175,17 @@ export default function TypingMissionScreen() {
     [passage, onComplete],
   );
 
-  // Word rendering
-  const passageWords = passage.split(' ');
-  const typedWords = typed.split(' ');
+  const characters = Array.from(passage);
+  const typedCharacters = Array.from(typed);
+  const progressPct = passage.length === 0
+    ? 0
+    : Math.round((Math.min(typedCharacters.length, characters.length) / characters.length) * 100);
+
+  function focusInput() {
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  }
 
   return (
     <View style={styles.root}>
@@ -161,33 +206,65 @@ export default function TypingMissionScreen() {
         <Text style={styles.heading}>TYPE TO DISMISS</Text>
 
         {/* Passage display */}
-        <View style={styles.passageContainer}>
-          <Text style={styles.passageText}>
-            {passageWords.map((word, i) => {
-              const state = getWordState(i, typedWords, passageWords);
-              const color =
-                state === 'correct'
-                  ? ON_SURFACE
-                  : state === 'error'
+        <View style={styles.passagePressable} onTouchStart={focusInput}>
+          <View style={styles.passageContainer} pointerEvents="none">
+            <Text style={styles.passageText}>
+              {characters.map((character, i) => {
+                const state = getCharacterState(i, typed);
+                const typedCharacter = typedCharacters[i];
+                const isCorrect = typedCharacter === character;
+                const color =
+                  state === 'error' && !isCorrect
                     ? ERROR_COLOR
-                    : state === 'current'
+                    : state === 'error' && isCorrect
                       ? ON_SURFACE
-                      : PENDING_COLOR;
-              const underline = state === 'current';
-              return (
-                <Text
-                  key={i}
-                  style={[
-                    styles.wordSpan,
-                    { color },
-                    underline && styles.currentWordUnderline,
-                  ]}
-                >
-                  {word}{' '}
+                      : state === 'current'
+                        ? PENDING_COLOR
+                        : state === 'pending'
+                          ? PENDING_COLOR
+                          : ON_SURFACE;
+                return (
+                  <Text
+                    key={i}
+                    style={[
+                      styles.characterSpan,
+                      character === ' ' && styles.spaceSpan,
+                      state === 'current' && styles.currentCharacterSpan,
+                      { color },
+                    ]}
+                  >
+                    {state === 'current' ? (
+                      <Text style={styles.caretOverlay}>|</Text>
+                    ) : null}
+                    {getCharacterDisplay(character, state, typedCharacter)}
+                  </Text>
+                );
+              })}
+              {typedCharacters.length >= characters.length && (
+                <Text style={[styles.characterSpan, styles.trailingCaretSlot]}>
+                  <Text style={styles.caretOverlay}>|</Text>
+                  {' '}
                 </Text>
-              );
-            })}
-          </Text>
+              )}
+            </Text>
+          </View>
+          <TextInput
+            ref={inputRef}
+            value={typed}
+            onChangeText={handleChangeText}
+            autoFocus
+            autoCorrect={false}
+            autoCapitalize="none"
+            spellCheck={false}
+            showSoftInputOnFocus
+            multiline={false}
+            caretHidden
+            contextMenuHidden
+            selectionColor="transparent"
+            underlineColorAndroid="transparent"
+            style={styles.inputOverlay}
+            accessibilityLabel="Type the passage here"
+          />
         </View>
 
         {/* Progress bar */}
@@ -196,38 +273,20 @@ export default function TypingMissionScreen() {
             style={[
               styles.progressFill,
               {
-                width: `${Math.min(
-                  100,
-                  Math.round((typedWords.filter((w, i) => w === passageWords[i]).length /
-                    passageWords.length) *
-                    100),
-                )}%`,
+                width: `${progressPct}%`,
               },
             ]}
           />
         </View>
 
         {/* Keyboard icon hint */}
-        <Pressable style={styles.keyboardHint} onPress={() => inputRef.current?.focus()}>
+        <Pressable style={styles.keyboardHint} onPress={focusInput}>
           <MaterialIcons name="keyboard" size={28} color={ON_SURFACE_VARIANT} />
           <Text style={styles.keyboardHintText}>Tap to type</Text>
         </Pressable>
       </KeyboardAvoidingView>
 
       {/* Hidden input — captures all typing */}
-      <TextInput
-        ref={inputRef}
-        value={typed}
-        onChangeText={handleChangeText}
-        autoFocus
-        autoCorrect={false}
-        autoCapitalize="none"
-        spellCheck={false}
-        multiline={false}
-        style={styles.hiddenInput}
-        accessibilityLabel="Type the passage here"
-      />
-
       {/* Success modal */}
       {showSuccess && (
         <View style={styles.modalOverlay}>
@@ -292,12 +351,16 @@ const styles = StyleSheet.create({
 
   // Passage
   passageContainer: {
-    marginHorizontal: 24,
     backgroundColor: SURFACE,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
     borderColor: OUTLINE_VARIANT,
+  },
+  passagePressable: {
+    borderRadius: 16,
+    marginHorizontal: 24,
+    position: 'relative',
   },
   passageText: {
     fontSize: 22,
@@ -305,14 +368,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flexWrap: 'wrap',
   },
-  wordSpan: {
+  characterSpan: {
     fontSize: 22,
     lineHeight: 36,
     fontWeight: '600',
   },
-  currentWordUnderline: {
-    textDecorationLine: 'underline',
-    textDecorationColor: PRIMARY,
+  currentCharacterSpan: {
+    position: 'relative',
+  },
+  trailingCaretSlot: {
+    position: 'relative',
+  },
+  spaceSpan: {
+    letterSpacing: 1,
+  },
+  caretOverlay: {
+    color: PRIMARY,
+    fontWeight: '800',
+    position: 'absolute',
+    left: -1,
+    top: 0,
   },
 
   // Progress bar
@@ -342,14 +417,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Hidden input
-  hiddenInput: {
-    position: 'absolute',
-    top: -100,
-    left: 0,
-    width: 1,
-    height: 1,
-    opacity: 0,
+  inputOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    color: 'transparent',
+    backgroundColor: 'transparent',
+    opacity: 0.01,
+    zIndex: 2,
   },
 
   // Success modal
