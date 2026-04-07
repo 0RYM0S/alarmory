@@ -69,10 +69,6 @@ function AlarmCard({ alarm, onToggle, onDelete }: AlarmCardProps) {
   });
 
   const timeStr = formatAlarmTime(alarm.hour, alarm.minute);
-  // Split "7:30 AM" into time portion and period
-  const timeParts = timeStr.match(/^(.+)\s+(AM|PM)$/) ?? [timeStr, timeStr, ""];
-  const timePart = timeParts[1];
-  const periodPart = timeParts[2];
 
   const repeatStr = formatRepeatDays(alarm.repeatDays);
   const missions = alarm.missions as Array<{ type: MissionType }>;
@@ -191,32 +187,18 @@ function AlarmCard({ alarm, onToggle, onDelete }: AlarmCardProps) {
         >
           {/* Time row */}
           <View style={styles.cardHeader}>
-            <View style={styles.timeRow}>
-              <Text
-                style={[
-                  styles.timeText,
-                  {
-                    color: isDisabled
-                      ? colors.onSurfaceVariant
-                      : colors.onSurface,
-                  },
-                ]}
-              >
-                {timePart}
-              </Text>
-              <Text
-                style={[
-                  styles.periodText,
-                  {
-                    color: isDisabled
-                      ? colors.onSurfaceVariant
-                      : colors.primary,
-                  },
-                ]}
-              >
-                {periodPart}
-              </Text>
-            </View>
+            <Text
+              style={[
+                styles.timeText,
+                {
+                  color: isDisabled
+                    ? colors.onSurfaceVariant
+                    : colors.onSurface,
+                },
+              ]}
+            >
+              {timeStr}
+            </Text>
             <Switch
               value={alarm.enabled}
               onValueChange={() => onToggle(alarm)}
@@ -664,22 +646,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  timeRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 4,
-  },
   timeText: {
     fontSize: 40,
     fontWeight: "700",
     lineHeight: 46,
     letterSpacing: -1,
-  },
-  periodText: {
-    fontSize: 16,
-    fontWeight: "700",
-    lineHeight: 32,
-    letterSpacing: 0.5,
+    minWidth: 108,
   },
   alarmLabel: {
     fontSize: 14,

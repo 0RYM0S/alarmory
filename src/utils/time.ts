@@ -1,11 +1,10 @@
 import { Alarm } from '../missions/types';
 
-// Format hour/minute to "HH:MM" with AM/PM, e.g. "7:30 AM"
+// Format hour/minute to "HH:MM", e.g. "07:30"
 export function formatAlarmTime(hour: number, minute: number): string {
-  const period = hour >= 12 ? 'PM' : 'AM';
-  const h = hour % 12 || 12;
+  const h = hour.toString().padStart(2, '0');
   const m = minute.toString().padStart(2, '0');
-  return `${h}:${m} ${period}`;
+  return `${h}:${m}`;
 }
 
 // Compute next fire time in ms from now given hour, minute, repeatDays

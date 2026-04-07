@@ -1,8 +1,7 @@
-import React, { useRef, useEffect, useCallback, useState } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  Pressable,
   ScrollView,
   StyleSheet,
   NativeSyntheticEvent,
@@ -11,37 +10,15 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/src/hooks/useTheme';
 
-// ─── Constants ──────────────────────────────────────────────────────────────
-
 const ITEM_HEIGHT = 56;
 const VISIBLE_ITEMS = 3;
-const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS; // 168
-const PAD_ITEMS = (VISIBLE_ITEMS - 1) / 2; // 1 empty item top + bottom
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-function to12h(hour: number): { displayHour: number; isAM: boolean } {
-  if (hour === 0) return { displayHour: 12, isAM: true };
-  if (hour < 12) return { displayHour: hour, isAM: true };
-  if (hour === 12) return { displayHour: 12, isAM: false };
-  return { displayHour: hour - 12, isAM: false };
-}
-
-function to24h(displayHour: number, isAM: boolean): number {
-  if (isAM) {
-    return displayHour === 12 ? 0 : displayHour;
-  } else {
-    return displayHour === 12 ? 12 : displayHour + 12;
-  }
-}
-
-// ─── ScrollColumn ────────────────────────────────────────────────────────────
+const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
+const PAD_ITEMS = (VISIBLE_ITEMS - 1) / 2;
 
 interface ScrollColumnProps {
   values: number[];
   selectedIndex: number;
   onSelect: (index: number) => void;
-  /** Width of the column — needed so gradients fill it correctly */
   width: number;
   formatLabel?: (value: number) => string;
 }
@@ -55,15 +32,11 @@ function ScrollColumn({
 }: ScrollColumnProps) {
   const { colors } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
-  // Track whether the initial scroll has fired so we don't fight user drags
   const didInitialScroll = useRef(false);
 
-  // Re-scroll whenever the selectedIndex changes from the outside (e.g. AM/PM
-  // toggle, or 24h mode switch rebuilding the values array).
   useEffect(() => {
     const y = selectedIndex * ITEM_HEIGHT;
     if (!didInitialScroll.current) {
-      // First mount: use setTimeout to allow layout to complete on Android
       setTimeout(() => {
         scrollRef.current?.scrollTo({ y, animated: false });
       }, 50);
@@ -83,17 +56,16 @@ function ScrollColumn({
     [values.length, onSelect],
   );
 
-  const label = formatLabel ?? ((v: number) => String(v).padStart(2, '0'));
+  const label = formatLabel ?? ((value: number) => String(value).padStart(2, '0'));
 
   return (
     <View style={[styles.columnWrapper, { width, height: PICKER_HEIGHT }]}>
-      {/* Selection highlight bar */}
       <View
         pointerEvents="none"
         style={[
           styles.selectionBar,
           {
-            backgroundColor: colors.primary + '26', // ~15% opacity
+            backgroundColor: `${colors.primary}26`,
             top: PAD_ITEMS * ITEM_HEIGHT,
           },
         ]}
@@ -101,16 +73,14 @@ function ScrollColumn({
 
       <ScrollView
         ref={scrollRef}
-        style={{ flex: 1 }}
+        style={styles.columnScroll}
         showsVerticalScrollIndicator={false}
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
         onMomentumScrollEnd={handleMomentumScrollEnd}
-        // Snap alignment – contentInset not needed because we pad with empty items
         scrollEventThrottle={16}
-        nestedScrollEnabled={true}
+        nestedScrollEnabled
       >
-        {/* Top padding item */}
         <View style={styles.padItem} />
 
         {values.map((value, index) => {
@@ -131,192 +101,88 @@ function ScrollColumn({
           );
         })}
 
-        {/* Bottom padding item */}
         <View style={styles.padItem} />
       </ScrollView>
 
-      {/* Gradient fade — top */}
       <View pointerEvents="none" style={[styles.gradient, styles.gradientTop]}>
-        <LinearGradient
-          colors={[colors.surface, colors.surface + '00']}
-          style={{ flex: 1 }}
-        />
+        <LinearGradient colors={[colors.surface, `${colors.surface}00`]} style={styles.flex} />
       </View>
 
-      {/* Gradient fade — bottom */}
       <View pointerEvents="none" style={[styles.gradient, styles.gradientBottom]}>
-        <LinearGradient
-          colors={[colors.surface + '00', colors.surface]}
-          style={{ flex: 1 }}
-        />
+        <LinearGradient colors={[`${colors.surface}00`, colors.surface]} style={styles.flex} />
       </View>
     </View>
   );
 }
 
-// ─── TimePicker ──────────────────────────────────────────────────────────────
-
 interface TimePickerProps {
-  hour: number;   // 24h internally
+  hour: number;
   minute: number;
   onChange: (hour: number, minute: number) => void;
 }
 
 export function TimePicker({ hour, minute, onChange }: TimePickerProps) {
   const { colors } = useTheme();
-  const [use24h, setUse24h] = useState(false);
 
-  // ── Derive current display state ─────────────────────────────────────────
+  const hourValues = Array.from({ length: 24 }, (_, index) => index);
+  const minuteValues = Array.from({ length: 60 }, (_, index) => index);
 
-  const { displayHour, isAM } = to12h(hour);
-
-  // Build value arrays
-  const hourValues = use24h
-    ? Array.from({ length: 24 }, (_, i) => i)        // 0–23
-    : Array.from({ length: 12 }, (_, i) => i + 1);   // 1–12
-
-  const minuteValues = Array.from({ length: 60 }, (_, i) => i); // 0–59
-
-  // Resolve selected indices
-  const hourIndex = use24h
-    ? hourValues.indexOf(hour)
-    : hourValues.indexOf(displayHour);
-
-  const minuteIndex = minuteValues.indexOf(minute);
-
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  const hourIndex = Math.max(0, hourValues.indexOf(hour));
+  const minuteIndex = Math.max(0, minuteValues.indexOf(minute));
 
   function handleHourSelect(index: number) {
-    const selected = hourValues[index];
-    if (use24h) {
-      onChange(selected, minute);
-    } else {
-      onChange(to24h(selected, isAM), minute);
-    }
+    onChange(hourValues[index], minute);
   }
 
   function handleMinuteSelect(index: number) {
     onChange(hour, minuteValues[index]);
   }
 
-  function toggleAMPM(wantAM: boolean) {
-    if (wantAM === isAM) return;
-    onChange(to24h(displayHour, wantAM), minute);
-  }
-
-  function toggle24h() {
-    setUse24h((prev) => !prev);
-  }
-
-  // ── Layout ────────────────────────────────────────────────────────────────
-
-  // Fixed column widths so the layout is stable
-  const HOUR_COL_W = 80;
-  const MIN_COL_W = 80;
-
   return (
     <View style={[styles.container, { backgroundColor: colors.surface }]}>
-      {/* ── Scroll wheels + AM/PM ── */}
       <View style={styles.wheelsRow}>
-        {/* Hour column */}
         <ScrollColumn
           values={hourValues}
-          selectedIndex={Math.max(0, hourIndex)}
+          selectedIndex={hourIndex}
           onSelect={handleHourSelect}
-          width={HOUR_COL_W}
-          formatLabel={use24h
-            ? (v) => String(v).padStart(2, '0')
-            : (v) => String(v)}
+          width={88}
         />
 
-        {/* Colon separator */}
         <View style={styles.colonContainer}>
           <Text style={[styles.colon, { color: colors.primary }]}>:</Text>
         </View>
 
-        {/* Minute column */}
         <ScrollColumn
           values={minuteValues}
-          selectedIndex={Math.max(0, minuteIndex)}
+          selectedIndex={minuteIndex}
           onSelect={handleMinuteSelect}
-          width={MIN_COL_W}
+          width={88}
         />
-
-        {/* AM/PM selector (12h mode only) */}
-        {!use24h && (
-          <View style={styles.ampmContainer}>
-            <Pressable
-              onPress={() => toggleAMPM(true)}
-              style={[
-                styles.ampmBtn,
-                {
-                  backgroundColor: isAM ? colors.primary : colors.surfaceElevated,
-                  borderTopLeftRadius: 8,
-                  borderTopRightRadius: 8,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.ampmText,
-                  { color: isAM ? colors.surface : colors.textSecondary },
-                ]}
-              >
-                AM
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => toggleAMPM(false)}
-              style={[
-                styles.ampmBtn,
-                {
-                  backgroundColor: !isAM ? colors.primary : colors.surfaceElevated,
-                  borderBottomLeftRadius: 8,
-                  borderBottomRightRadius: 8,
-                  marginTop: 2,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.ampmText,
-                  { color: !isAM ? colors.surface : colors.textSecondary },
-                ]}
-              >
-                PM
-              </Text>
-            </Pressable>
-          </View>
-        )}
-      </View>
-
-      {/* ── 24h toggle ── */}
-      <View style={styles.toggleRow}>
-        <Pressable onPress={toggle24h} style={styles.toggleBtn} hitSlop={8}>
-          <Text style={[styles.toggleText, { color: colors.primary }]}>
-            {use24h ? '● 24h' : '○ 24h'}
-          </Text>
-        </Pressable>
       </View>
     </View>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   container: {
     borderRadius: 16,
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
   },
   wheelsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  // ── ScrollColumn ──
   columnWrapper: {
     overflow: 'hidden',
     position: 'relative',
+  },
+  columnScroll: {
+    flex: 1,
   },
   selectionBar: {
     position: 'absolute',
@@ -359,9 +225,8 @@ const styles = StyleSheet.create({
   gradientBottom: {
     bottom: 0,
   },
-  // ── Colon ──
   colonContainer: {
-    width: 24,
+    width: 28,
     height: PICKER_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
@@ -369,39 +234,6 @@ const styles = StyleSheet.create({
   colon: {
     fontSize: 32,
     fontWeight: '700',
-    // Nudge up slightly so colon visually aligns with selected digits
     marginBottom: 4,
-  },
-  // ── AM/PM ──
-  ampmContainer: {
-    marginLeft: 12,
-    justifyContent: 'center',
-    alignSelf: 'center',
-  },
-  ampmBtn: {
-    width: 44,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ampmText: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  // ── 24h toggle ──
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 10,
-  },
-  toggleBtn: {
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  toggleText: {
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.3,
   },
 });
