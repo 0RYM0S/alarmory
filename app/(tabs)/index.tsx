@@ -340,53 +340,44 @@ export default function HomeScreen() {
       >
         {/* ── Next alarm banner ── */}
         {nextAlarm && (
-          <View
+          <LinearGradient
+            colors={[`${colors.primaryDim}0C`, `${colors.primaryDim}04`]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={[
-              styles.bannerWrapper,
-              isDark ? Shadows.dark.card : Shadows.light.card,
+              styles.banner,
+              {
+                borderColor: `${colors.primary}22`,
+                borderWidth: 1,
+                borderRadius: 20,
+              },
             ]}
           >
-            <LinearGradient
-              colors={[`${colors.primaryDim}28`, `${colors.primaryDim}08`]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            <Text
+              style={[styles.bannerLabel, { color: colors.onSurfaceVariant }]}
+            >
+              NEXT ALARM IN
+            </Text>
+            <Text style={[styles.bannerCountdown, { color: colors.onSurface }]}>
+              {formatCountdown(nextAlarm.nextFireTime)}
+            </Text>
+            <View
               style={[
-                styles.banner,
-                {
-                  borderColor: `${colors.primary}22`,
-                  borderWidth: 1,
-                  borderRadius: 20,
-                },
+                styles.timePill,
+                { backgroundColor: `${colors.primary}22` },
               ]}
             >
-              <Text
-                style={[styles.bannerLabel, { color: colors.onSurfaceVariant }]}
-              >
-                NEXT ALARM IN
+              <MaterialIcons
+                name="alarm"
+                size={12}
+                color={colors.primary}
+                style={{ marginRight: 4 }}
+              />
+              <Text style={[styles.timePillText, { color: colors.primary }]}>
+                {formatAlarmTime(nextAlarm.hour, nextAlarm.minute)}
               </Text>
-              <Text
-                style={[styles.bannerCountdown, { color: colors.onSurface }]}
-              >
-                {formatCountdown(nextAlarm.nextFireTime)}
-              </Text>
-              <View
-                style={[
-                  styles.timePill,
-                  { backgroundColor: `${colors.primary}22` },
-                ]}
-              >
-                <MaterialIcons
-                  name="alarm"
-                  size={12}
-                  color={colors.primary}
-                  style={{ marginRight: 4 }}
-                />
-                <Text style={[styles.timePillText, { color: colors.primary }]}>
-                  {formatAlarmTime(nextAlarm.hour, nextAlarm.minute)}
-                </Text>
-              </View>
-            </LinearGradient>
-          </View>
+            </View>
+          </LinearGradient>
         )}
 
         {/* ── Active alarms section ── */}
@@ -535,6 +526,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     alignItems: "center",
     gap: 6,
+    marginBottom: 12,
   },
   bannerLabel: {
     fontSize: 11,
@@ -543,10 +535,10 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   bannerCountdown: {
-    fontSize: 48,
-    fontWeight: "300",
-    letterSpacing: -1,
-    lineHeight: 56,
+    fontSize: 40,
+    fontWeight: "700",
+    letterSpacing: -0.5,
+    lineHeight: 46,
   },
   timePill: {
     flexDirection: "row",
