@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useTheme } from '@/src/hooks/useTheme';
+import { alpha } from '@/src/utils/colors';
+import { formatAlarmTime } from '@/src/utils/time';
 
 const PASSAGES = {
   short: [
@@ -37,12 +39,6 @@ type CharacterState = 'correct' | 'error' | 'pending' | 'current';
 function pickPassage(length: PassageLength): string {
   const list = PASSAGES[length];
   return list[Math.floor(Math.random() * list.length)];
-}
-
-function formatTime(date: Date): string {
-  const h = date.getHours().toString().padStart(2, '0');
-  const m = date.getMinutes().toString().padStart(2, '0');
-  return `${h}:${m}`;
 }
 
 function accuracy(typed: string, passage: string): number {
@@ -95,10 +91,6 @@ function getCharacterDisplay(character: string, state: CharacterState, typedChar
   return character;
 }
 
-function alpha(hex: string, amount: string) {
-  return `${hex}${amount}`;
-}
-
 export default function TypingMissionScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
@@ -111,13 +103,17 @@ export default function TypingMissionScreen() {
 
   const [passage] = useState(() => pickPassage(passageLength));
   const [typed, setTyped] = useState('');
-  const [currentTime, setCurrentTime] = useState(formatTime(new Date()));
+  const now = new Date();
+  const [currentTime, setCurrentTime] = useState(formatAlarmTime(now.getHours(), now.getMinutes()));
   const [showSuccess, setShowSuccess] = useState(false);
   const completedRef = useRef(false);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    const id = setInterval(() => setCurrentTime(formatTime(new Date())), 1000);
+    const id = setInterval(() => {
+      const d = new Date();
+      setCurrentTime(formatAlarmTime(d.getHours(), d.getMinutes()));
+    }, 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -143,11 +139,11 @@ export default function TypingMissionScreen() {
     [passage, onComplete],
   );
 
-  const characters = Array.from(passage);
+  const characters = useMemo(() => Array.from(passage), [passage]);
   const typedCharacters = Array.from(typed);
   const progressPct = passage.length === 0
     ? 0
-    : Math.round((Math.min(typedCharacters.length, characters.length) / characters.length) * 100);
+    : Math.round((Math.min(typed.length, passage.length) / passage.length) * 100);
 
   function focusInput() {
     requestAnimationFrame(() => {

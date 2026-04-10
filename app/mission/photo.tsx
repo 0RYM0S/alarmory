@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useTheme } from "@/src/hooks/useTheme";
+import { alpha } from "@/src/utils/colors";
 
 // ---------------------------------------------------------------------------
 // Corner bracket component
@@ -19,9 +20,6 @@ import { useTheme } from "@/src/hooks/useTheme";
 
 const BRACKET_SIZE = 40;
 const BRACKET_THICK = 3;
-function alpha(hex: string, amount: string) {
-  return `${hex}${amount}`;
-}
 
 function CornerBracket({
   position,
@@ -88,16 +86,11 @@ export default function PhotoMissionScreen() {
     alarmId: string;
   }>();
 
-  // Camera permission state
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  // TODO: request camera permission with expo-camera in Stage 7
-
   const [flashOn, setFlashOn] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // Pulse animation for capture button
-  const pulseAnim = new Animated.Value(1);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -579,17 +572,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  captureRingActive: {
-    borderColor: "rgba(168, 164, 255, 0.6)",
-  },
   captureButton: {
     width: 80,
     height: 80,
     borderRadius: 40,
     backgroundColor: "#fffFFF",
-  },
-  captureButtonActive: {
-    backgroundColor: "#A8A4FF",
   },
 
   // Success overlay

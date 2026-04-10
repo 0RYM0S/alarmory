@@ -10,25 +10,15 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useTheme } from '@/src/hooks/useTheme';
+import type { ThemeColors } from '@/constants/Colors';
 
 const RING_SIZE = 288;
 const RING_THICKNESS = 18;
 const INNER_SIZE = RING_SIZE - RING_THICKNESS * 2;
 
-type MissionPalette = {
-  background: string;
-  surfaceContainer: string;
-  surfaceContainerHighest: string;
-  primary: string;
-  primaryDim: string;
-  onSurface: string;
-  onSurfaceVariant: string;
-  tertiary: string;
-};
-
 interface ProgressRingProps {
   progress: number;
-  palette: MissionPalette;
+  palette: ThemeColors;
 }
 
 function ProgressRing({ progress, palette }: ProgressRingProps) {
@@ -140,7 +130,7 @@ interface StatCardProps {
   label: string;
   value: string;
   accentLeft?: boolean;
-  palette: MissionPalette;
+  palette: ThemeColors;
 }
 
 function StatCard({ icon, iconColor, label, value, accentLeft, palette }: StatCardProps) {
@@ -198,17 +188,6 @@ export default function StepMissionScreen() {
   const [stepCount, setStepCount] = useState(0);
   const [elapsed, setElapsed] = useState(0);
 
-  const palette: MissionPalette = {
-    background: colors.background,
-    surfaceContainer: colors.surfaceContainer,
-    surfaceContainerHighest: colors.surfaceContainerHighest,
-    primary: colors.primary,
-    primaryDim: colors.primaryDim,
-    onSurface: colors.onSurface,
-    onSurfaceVariant: colors.onSurfaceVariant,
-    tertiary: colors.tertiary,
-  };
-
   useEffect(() => {
     const id = setInterval(() => setElapsed((s) => s + 1), 1000);
     return () => clearInterval(id);
@@ -235,45 +214,45 @@ export default function StepMissionScreen() {
     : `${remaining} more step${remaining !== 1 ? 's' : ''} to deactivate the alarm.`;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={[styles.microLabel, { color: palette.onSurfaceVariant }]}>ACTIVE MISSION</Text>
-          <Text style={[styles.heading, { color: palette.onSurface }]}>Step Counter</Text>
+          <Text style={[styles.microLabel, { color: colors.onSurfaceVariant }]}>ACTIVE MISSION</Text>
+          <Text style={[styles.heading, { color: colors.onSurface }]}>Step Counter</Text>
         </View>
 
         <View style={styles.ringSection}>
-          <ProgressRing progress={progress} palette={palette} />
+          <ProgressRing progress={progress} palette={colors} />
           <View style={styles.ringCenter}>
             <View style={styles.stepCountRow}>
-              <Text style={[styles.stepCountBig, { color: palette.onSurface }]}>{stepCount}</Text>
-              <Text style={[styles.stepTarget, { color: palette.onSurfaceVariant }]}>/ {target}</Text>
+              <Text style={[styles.stepCountBig, { color: colors.onSurface }]}>{stepCount}</Text>
+              <Text style={[styles.stepTarget, { color: colors.onSurfaceVariant }]}>/ {target}</Text>
             </View>
-            <Text style={[styles.stepsTakenLabel, { color: palette.primary }]}>STEPS TAKEN</Text>
+            <Text style={[styles.stepsTakenLabel, { color: colors.primary }]}>STEPS TAKEN</Text>
           </View>
         </View>
 
         <View style={styles.statusSection}>
-          <Text style={[styles.statusMessage, { color: palette.onSurface }]}>{statusMessage}</Text>
-          <Text style={[styles.statusSubtitle, { color: palette.onSurfaceVariant }]}>{statusSubtitle}</Text>
+          <Text style={[styles.statusMessage, { color: colors.onSurface }]}>{statusMessage}</Text>
+          <Text style={[styles.statusSubtitle, { color: colors.onSurfaceVariant }]}>{statusSubtitle}</Text>
         </View>
 
         <View style={styles.statRow}>
           <StatCard
             icon="directions-walk"
-            iconColor={palette.primary}
+            iconColor={colors.primary}
             label="Cadence"
             value="-"
             accentLeft
-            palette={palette}
+            palette={colors}
           />
           <View style={styles.statGap} />
           <StatCard
             icon="timer"
-            iconColor={palette.tertiary}
+            iconColor={colors.tertiary}
             label="Elapsed"
             value={formatElapsed(elapsed)}
-            palette={palette}
+            palette={colors}
           />
         </View>
 
@@ -282,11 +261,11 @@ export default function StepMissionScreen() {
             onPress={() => router.back()}
             style={({ pressed }) => [
               styles.emergencyButton,
-              { backgroundColor: `${palette.surfaceContainerHighest}88` },
+              { backgroundColor: `${colors.surfaceContainerHighest}88` },
               pressed && styles.emergencyButtonPressed,
             ]}
           >
-            <Text style={[styles.emergencyText, { color: palette.onSurfaceVariant }]}>Emergency Stop</Text>
+            <Text style={[styles.emergencyText, { color: colors.onSurfaceVariant }]}>Emergency Stop</Text>
           </Pressable>
         </View>
       </View>

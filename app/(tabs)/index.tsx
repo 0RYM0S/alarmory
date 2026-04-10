@@ -517,10 +517,6 @@ const styles = StyleSheet.create({
   },
 
   // Banner
-  bannerWrapper: {
-    borderRadius: 20,
-    marginBottom: 28,
-  },
   banner: {
     paddingHorizontal: 24,
     paddingVertical: 20,

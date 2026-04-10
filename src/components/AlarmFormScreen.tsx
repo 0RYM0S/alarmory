@@ -25,7 +25,7 @@ import { TimePicker } from '@/src/components/TimePicker';
 import { DayPicker } from '@/src/components/DayPicker';
 import { SoundPicker } from '@/src/components/SoundPicker';
 import { MissionPicker } from '@/src/components/MissionPicker';
-import { computeNextFireTime } from '@/src/utils/time';
+import { computeNextFireTime, formatOneTimeAlarmDate } from '@/src/utils/time';
 import { Gradients, Shadows, ThemeColors } from '@/constants/Colors';
 import type { Alarm, AlarmMission } from '@/src/missions/types';
 import { getPhotoMissionDraft } from '@/src/state/photoMissionDraft';
@@ -77,11 +77,6 @@ function SnoozeChip({ label, active, onPress, colors }: SnoozeChipProps) {
       </Pressable>
     </Animated.View>
   );
-}
-
-function formatDate(date: Date): string {
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${months[date.getMonth()]} ${date.getDate()}`;
 }
 
 function inferSpecificDate(alarm: Alarm): Date | null {
@@ -528,7 +523,7 @@ export function AlarmFormScreen({
               ]}
             >
               <Text style={[styles.dateChipLabel, { color: specificDate ? '#FFFFFF' : colors.textSecondary }]}>
-                {specificDate ? formatDate(specificDate) : 'Date'}
+                {specificDate ? formatOneTimeAlarmDate(specificDate.getTime()) : 'Date'}
               </Text>
             </Pressable>
           )}
